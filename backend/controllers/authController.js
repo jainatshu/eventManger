@@ -33,7 +33,7 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create and save user
-    const user = new User({ name, email, password: hashedPassword});
+    const user = new User({ name, email, password: hashedPassword });
     await user.save();
 
     // Generate JWT token
@@ -42,8 +42,8 @@ export const register = async (req, res) => {
     // Send token in HTTP-only cookie
     res.cookie("token", token, {
       httpOnly: true,
-      
-      sameSite: "Strict",
+      secure: true,  // Ensures it works on HTTPS
+      sameSite: "None"
     });
 
     res.status(201).json({ message: "User registered", user });
@@ -54,60 +54,60 @@ export const register = async (req, res) => {
 
 // Login User
 export const login = async (req, res) => {
-    try {
-      const { email, password } = req.body;
-  
-      // Validate email format
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
-      }
-  
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(400).json({ error: "User not found" });
-      }
-  
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ error: "Invalid credentials" });
-      }
-  
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-  
-      res.cookie("token", token, {
-        httpOnly: true,
-       
-        sameSite: "Strict",
-      });
-  
-      res.json({ message: "Login successful", user });
-    } catch (error) {
-      console.error("Login Error:", error); // Log the error
-      res.status(500).json({ error: "Login failed", details: error.message });
+  try {
+    const { email, password } = req.body;
+
+    // Validate email format
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
     }
-  };
-  
-  export const getMe = async (req, res) => {
-    try {
-      // Extract token from cookies
-      const token = req.cookies.token;
-      if (!token) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-  
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select("-password"); // Exclude password
-  
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-  
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch user", details: error.message });
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ error: "User not found" });
     }
-  };
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,  // Ensures it works on HTTPS
+      sameSite: "None"
+    });
+
+    res.json({ message: "Login successful", user });
+  } catch (error) {
+    console.error("Login Error:", error); // Log the error
+    res.status(500).json({ error: "Login failed", details: error.message });
+  }
+};
+
+export const getMe = async (req, res) => {
+  try {
+    // Extract token from cookies
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-password"); // Exclude password
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch user", details: error.message });
+  }
+};
 // Logout User
 export const logout = (req, res) => {
   res.clearCookie("token");
